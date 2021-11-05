@@ -15,7 +15,7 @@ from telegram.ext import (
     Updater,
 )
 
-from utils import parse_text
+from parse import parse_text
 
 QUIZ = "quiz-questions.zip"
 

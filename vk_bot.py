@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from vk_api.keyboard import VkKeyboard
 from vk_api.longpoll import VkLongPoll, VkEventType
 
-from utils import parse_text
+from parse import parse_text
 
 QUIZ_FILES = "quiz-questions.zip"
 quiz = parse_text(QUIZ_FILES)
