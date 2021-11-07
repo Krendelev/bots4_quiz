@@ -17,15 +17,9 @@ from telegram.ext import (
 
 from parse import parse_text
 
-QUIZ = "quiz-questions.zip"
-
-State = Enum("State", "CHOOSING ATTEMPT")
-
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
 
 logger = logging.getLogger(__name__)
+State = Enum("State", "CHOOSING ATTEMPT")
 
 
 def start(update, context):
@@ -36,13 +30,13 @@ def start(update, context):
         text="Привет! Я бот для викторины",
         reply_markup=reply_markup,
     )
-    context.user_data["quiz"] = parse_text(QUIZ)
+    context.user_data["quiz"] = parse_text(context.bot_data["quiz_file"])
     return State.CHOOSING
 
 
 def get_questions(context):
     if not context.user_data["quiz"]:
-        context.user_data["quiz"] = parse_text(QUIZ)
+        context.user_data["quiz"] = parse_text(context.bot_data["quiz_file"])
     return list(context.user_data["quiz"])
 
 
@@ -99,6 +93,10 @@ def unknown(update, context):
 
 
 def main():
+    logging.basicConfig(
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        level=logging.INFO,
+    )
     load_dotenv()
 
     db = redis.Redis(
@@ -109,6 +107,7 @@ def main():
 
     updater = Updater(os.environ["TELEGRAM_TOKEN"])
     dispatcher = updater.dispatcher
+    dispatcher.bot_data["quiz_file"] = os.environ["QUIZ_FILE"]
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
