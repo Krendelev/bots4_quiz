@@ -10,12 +10,9 @@ from vk_api.longpoll import VkLongPoll, VkEventType
 
 from parse import parse_text
 
-QUIZ_FILES = "quiz-questions.zip"
-quiz = parse_text(QUIZ_FILES)
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+quiz = {}
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,6 +27,8 @@ def set_keyboard(keys=[]):
 
 
 def start(event, vk_api):
+    global quiz
+    quiz[event.user_id] = parse_text(quiz["files"])
     custom_keyboard = [["Новый вопрос", "Сдаюсь"], ["Мой результат"]]
     keyboard = set_keyboard(custom_keyboard)
 
@@ -41,15 +40,15 @@ def start(event, vk_api):
     )
 
 
-def get_questions():
+def get_questions(user_id):
     global quiz
-    if not quiz:
-        quiz = parse_text(QUIZ_FILES)
-    return list(quiz)
+    if not quiz[user_id]:
+        quiz[user_id] = parse_text(quiz["files"])
+    return list(quiz[user_id])
 
 
 def handle_new_question_request(event, vk_api, db):
-    question = random.choice(get_questions())
+    question = random.choice(get_questions(event.user_id))
     db.set(event.user_id, question)
     vk_api.messages.send(
         user_id=event.user_id,
@@ -60,7 +59,7 @@ def handle_new_question_request(event, vk_api, db):
 
 def handle_solution_attempt(event, vk_api, db):
     question = db.get(event.user_id).decode()
-    answer = quiz[question]
+    answer = quiz[event.user_id][question]
 
     if event.text.lower() in answer.lower():
         vk_api.messages.send(
@@ -68,7 +67,7 @@ def handle_solution_attempt(event, vk_api, db):
             message="Правильно! Поздравляю! Для следующего вопроса нажми «Новый вопрос»",
             random_id=random.getrandbits(32),
         )
-        quiz.pop(question)
+        quiz[event.user_id].pop(question)
         return
 
     vk_api.messages.send(
@@ -80,13 +79,13 @@ def handle_solution_attempt(event, vk_api, db):
 
 def give_up(event, vk_api, db):
     question = db.get(event.user_id).decode()
-    answer = quiz[question]
+    answer = quiz[event.user_id][question]
     vk_api.messages.send(
         user_id=event.user_id,
         message=f"Правильный ответ: {answer}",
         random_id=random.getrandbits(32),
     )
-    quiz.pop(question)
+    quiz[event.user_id].pop(question)
     return handle_new_question_request(event, vk_api, db)
 
 
@@ -101,6 +100,9 @@ def cancel(event, vk_api):
 
 
 def main():
+    logging.basicConfig(
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    )
     load_dotenv()
 
     db = redis.Redis(
@@ -108,6 +110,9 @@ def main():
         port=os.environ["REDIS_PORT"],
         password=os.environ["REDIS_PASSWORD"],
     )
+
+    global quiz
+    quiz["files"] = os.environ["QUIZ_FILE"]
 
     vk_session = vk.VkApi(token=os.getenv("VK_ACCESS_TOKEN"))
     vk_api = vk_session.get_api()
