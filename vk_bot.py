@@ -11,17 +11,16 @@ from vk_api.longpoll import VkLongPoll, VkEventType
 from parse import parse_text
 
 
+logger = logging.getLogger(__name__)
 quiz = {}
 
-logger = logging.getLogger(__name__)
 
-
-def set_keyboard(keys=[]):
+def set_keyboard(key_labels=[]):
     keyboard = VkKeyboard()
-    for i, row in enumerate(keys):
-        for key in row:
-            keyboard.add_button(key)
-        if i != len(keys) - 1:
+    for i, row in enumerate(key_labels):
+        for label in row:
+            keyboard.add_button(label)
+        if i != len(key_labels) - 1:
             keyboard.add_line()
     return keyboard
 
@@ -36,7 +35,7 @@ def start(event, vk_api):
         user_id=event.user_id,
         message="Привет! Я бот для викторины",
         keyboard=keyboard.get_keyboard(),
-        random_id=random.getrandbits(32),
+        random_id=vk.utils.get_random_id(),
     )
 
 
@@ -49,23 +48,23 @@ def get_questions(user_id):
 
 def handle_new_question_request(event, vk_api, db):
     question = random.choice(get_questions(event.user_id))
-    db.set(event.user_id, question)
+    db.set(f"vk-{event.user_id}", question)
     vk_api.messages.send(
         user_id=event.user_id,
         message=question,
-        random_id=random.getrandbits(32),
+        random_id=vk.utils.get_random_id(),
     )
 
 
 def handle_solution_attempt(event, vk_api, db):
-    question = db.get(event.user_id).decode()
+    question = db.get(f"vk-{event.user_id}").decode()
     answer = quiz[event.user_id][question]
 
     if event.text.lower() in answer.lower():
         vk_api.messages.send(
             user_id=event.user_id,
             message="Правильно! Поздравляю! Для следующего вопроса нажми «Новый вопрос»",
-            random_id=random.getrandbits(32),
+            random_id=vk.utils.get_random_id(),
         )
         quiz[event.user_id].pop(question)
         return
@@ -73,17 +72,17 @@ def handle_solution_attempt(event, vk_api, db):
     vk_api.messages.send(
         user_id=event.user_id,
         message="Неправильно… Попробуешь ещё раз?",
-        random_id=random.getrandbits(32),
+        random_id=vk.utils.get_random_id(),
     )
 
 
 def give_up(event, vk_api, db):
-    question = db.get(event.user_id).decode()
+    question = db.get(f"vk-{event.user_id}").decode()
     answer = quiz[event.user_id][question]
     vk_api.messages.send(
         user_id=event.user_id,
         message=f"Правильный ответ: {answer}",
-        random_id=random.getrandbits(32),
+        random_id=vk.utils.get_random_id(),
     )
     quiz[event.user_id].pop(question)
     return handle_new_question_request(event, vk_api, db)
@@ -95,13 +94,14 @@ def cancel(event, vk_api):
         user_id=event.user_id,
         message="Всего хорошего! Заходи ещё.",
         keyboard=keyboard.get_empty_keyboard(),
-        random_id=random.getrandbits(32),
+        random_id=vk.utils.get_random_id(),
     )
 
 
 def main():
     logging.basicConfig(
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        level=logging.INFO,
     )
     load_dotenv()
 

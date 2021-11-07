@@ -42,13 +42,13 @@ def get_questions(context):
 
 def handle_new_question_request(update, context, db):
     question = random.choice(get_questions(context))
-    db.set(update.effective_chat.id, question)
+    db.set(f"tg-{update.effective_chat.id}", question)
     update.message.reply_text(question)
     return State.ATTEMPT
 
 
 def handle_solution_attempt(update, context, db):
-    question = db.get(update.effective_chat.id).decode()
+    question = db.get(f"tg-{update.effective_chat.id}").decode()
     answer = context.user_data["quiz"][question]
 
     if update.message.text.lower() in answer.lower():
@@ -63,7 +63,7 @@ def handle_solution_attempt(update, context, db):
 
 
 def give_up(update, context, db):
-    question = db.get(update.effective_chat.id).decode()
+    question = db.get(f"tg-{update.effective_chat.id}").decode()
     answer = context.user_data["quiz"][question]
     update.message.reply_text(f"Правильный ответ: {answer}")
     context.user_data["quiz"].pop(question)
